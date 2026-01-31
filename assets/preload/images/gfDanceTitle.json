@@ -1,0 +1,10 @@
+{	
+	"titlex":5,
+	"titley":5,
+	"startx":300,
+	"starty":576,
+	"gfx":512,
+	"gfy":40,
+	"backgroundSprite":"",
+	"bpm":102
+}
