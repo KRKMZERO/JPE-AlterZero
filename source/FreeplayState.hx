@@ -18,6 +18,7 @@ import lime.utils.Assets;
 import flixel.system.FlxSound;
 import openfl.utils.Assets as OpenFlAssets;
 import WeekData;
+import states.CategoryState;
 #if MODS_ALLOWED
 import sys.FileSystem;
 #end
@@ -60,7 +61,12 @@ class FreeplayState extends MusicBeatState
 		
 		persistentUpdate = true;
 		PlayState.isStoryMode = false;
-		WeekData.reloadWeekFiles(false);
+		WeekData.reloadCustomWeekFiles(CategoryState.categorySelected, false);
+
+		if (CategoryState.categorySelected == null)
+		{
+			WeekData.reloadWeekFiles(false);
+		}
 
 		#if desktop
 		// Updating Discord Rich Presence

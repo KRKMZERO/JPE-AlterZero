@@ -8,6 +8,7 @@ import lime.utils.Assets;
 import openfl.utils.Assets as OpenFlAssets;
 import haxe.Json;
 import haxe.format.JsonParser;
+import states.CategoryState;
 
 using StringTools;
 
@@ -26,6 +27,7 @@ typedef WeekFile =
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
 	var difficulties:String;
+	var category:String; // ← 追加
 }
 
 class WeekData {
@@ -46,6 +48,7 @@ class WeekData {
 	public var hideStoryMode:Bool;
 	public var hideFreeplay:Bool;
 	public var difficulties:String;
+	public var category:String;
 
 	public var fileName:String;
 
@@ -81,9 +84,99 @@ class WeekData {
 		hideStoryMode = weekFile.hideStoryMode;
 		hideFreeplay = weekFile.hideFreeplay;
 		difficulties = weekFile.difficulties;
+		category = Reflect.hasField(weekFile, "category") ? weekFile.category : null;
 
 		this.fileName = fileName;
 	}
+
+	public static function reloadCustomWeekFiles(category:String, isStoryMode:Null<Bool> = false)
+	{
+		// category が null の場合は従来通り
+		if (category == null)
+		{
+			reloadWeekFiles(isStoryMode);
+			return;
+		}
+
+		weeksList = [];
+		weeksLoaded.clear();
+
+		#if MODS_ALLOWED
+		var disabledMods:Array<String> = [];
+		var modsListPath:String = 'modsList.txt';
+		var directories:Array<String> = [Paths.mods(), Paths.getPreloadPath()];
+		var originalLength:Int = directories.length;
+
+		if (FileSystem.exists(modsListPath))
+		{
+			var stuff:Array<String> = CoolUtil.coolTextFile(modsListPath);
+			for (i in 0...stuff.length)
+			{
+				var splitName:Array<String> = stuff[i].trim().split('|');
+				if (splitName[1] == '0')
+				{
+					disabledMods.push(splitName[0]);
+				}
+				else
+				{
+					var path = haxe.io.Path.join([Paths.mods(), splitName[0]]);
+					if (sys.FileSystem.isDirectory(path)
+						&& !Paths.ignoreModFolders.contains(splitName[0])
+						&& !disabledMods.contains(splitName[0])
+						&& !directories.contains(path + '/'))
+					{
+						directories.push(path + '/');
+					}
+				}
+			}
+		}
+		#else
+		var directories:Array<String> = [Paths.getPreloadPath()];
+		var originalLength:Int = directories.length;
+		#end
+
+		// 🔴 ここが通常と違うポイント
+		var weekListPath:String = Paths.getPreloadPath('weeks/categories/' + category + '.txt');
+		if (!OpenFlAssets.exists(weekListPath))
+		{
+			// カテゴリ定義がなければ何も読み込まない
+			return;
+		}
+
+		var weekList:Array<String> = CoolUtil.coolTextFile(weekListPath);
+
+		for (i in 0...weekList.length)
+		{
+			for (j in 0...directories.length)
+			{
+				var fileToCheck:String = directories[j] + 'weeks/' + weekList[i] + '.json';
+				if (!weeksLoaded.exists(weekList[i]))
+				{
+					var week:WeekFile = getWeekFile(fileToCheck);
+					if (week != null)
+					{
+						var weekFile:WeekData = new WeekData(week, weekList[i]);
+
+						#if MODS_ALLOWED
+						if (j >= originalLength)
+						{
+							weekFile.folder = directories[j].substring(Paths.mods().length, directories[j].length - 1);
+						}
+						#end
+
+						if (isStoryMode == null
+							|| (isStoryMode && !weekFile.hideStoryMode)
+							|| (!isStoryMode && !weekFile.hideFreeplay))
+						{
+							weeksLoaded.set(weekList[i], weekFile);
+							weeksList.push(weekList[i]);
+						}
+					}
+				}
+			}
+		}
+	}
+
 
 	public static function reloadWeekFiles(isStoryMode:Null<Bool> = false)
 	{
@@ -147,10 +240,23 @@ class WeekData {
 						}
 						#end
 
-						if(weekFile != null && (isStoryMode == null || (isStoryMode && !weekFile.hideStoryMode) || (!isStoryMode && !weekFile.hideFreeplay))) {
+						var categoryOK:Bool = true;
+
+						if (CategoryState.categorySelected != null)
+						{
+							categoryOK = (weekFile.category == CategoryState.categorySelected);
+						}
+
+						if (weekFile != null
+							&& categoryOK
+							&& (isStoryMode == null
+								|| (isStoryMode && !weekFile.hideStoryMode)
+								|| (!isStoryMode && !weekFile.hideFreeplay)))
+						{
 							weeksLoaded.set(sexList[i], weekFile);
 							weeksList.push(sexList[i]);
 						}
+
 					}
 				}
 			}
